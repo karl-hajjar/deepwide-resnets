@@ -4,15 +4,15 @@ with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
 setuptools.setup(
-    name='learning-structure',
+    name='deepwide-resnets',
     distname='',
     version='0.1.0',
     author='Karl Hajjar',
     author_email='karl.hajjar@polytechnique.edu',
-    description='Library for experiments with shallow networks',
+    description='Library for experiments with deep and wide resnets',
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url='https://github.com/karl-hajjar/learning-structure',
+    url='https://github.com/karl-hajjar/deepwide-resnets',
     license='MIT',
     packages=['.'],
     python_requires='3.9',
