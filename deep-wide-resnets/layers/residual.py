@@ -25,15 +25,16 @@ class Residual(LightningModule):
         self.alpha = alpha  # multiplier for the residual connection
 
         self._build_model()  # define first and second layer of the residual block
-        self.initialize_parameters()  # initialize with a custom init
+        self.initialize_parameters(**kwargs)  # initialize with a custom init
 
     def _build_model(self):
         self.first_layer = nn.Linear(in_features=self.d, out_features=self.width, bias=self.bias)
         self.second_layer = nn.Linear(in_features=self.width, out_features=self.d, bias=self.bias)
 
-    def initialize_parameters(self, kind='sphere', mode='fan_in'):
+    def initialize_parameters(self, kind='he', mode='fan_in'):
         if kind == 'he':
             torch.nn.init.kaiming_normal_(self.first_layer.weight, mode=mode, nonlinearity=self.activation_name)
+            torch.nn.init.kaiming_normal_(self.second_layer.weight, mode=mode, nonlinearity=self.activation_name)
 
         elif kind == 'sphere':
             with torch.no_grad():
