@@ -10,22 +10,26 @@ class Residual(LightningModule):
     A class defining a residual block consisting of two fully-connected layers followed by a residual connection: that
     is, for an input x, the output of the residual layer is x + alpha * W_2 phi(W_1 x + b_1) + b_2.
     """
+    INIT_KEYS = ['kind', 'mode']
 
     def __init__(self, d: int, width: int, activation: [str, None] = None, bias=False, alpha=1.0, **kwargs):
         super().__init__()
+        act_kwargs = {key: value for key, value in kwargs.items() if key not in self.INIT_KEYS}
+        init_kwargs = {key: value for key, value in kwargs.items() if key in self.INIT_KEYS}
+
         self.d = d  # dimension of the input and output of the residual block
         self.width = width
         if activation is None:
             self.activation_name = DEFAULT_ACTIVATION
         else:
             self.activation_name = activation
-        self.activation = ACTIVATION_DICT[self.activation_name](**kwargs)
+        self.activation = ACTIVATION_DICT[self.activation_name](**act_kwargs)
         self.bias = bias
 
         self.alpha = alpha  # multiplier for the residual connection
 
         self._build_model()  # define first and second layer of the residual block
-        self.initialize_parameters(**kwargs)  # initialize with a custom init
+        self.initialize_parameters(**init_kwargs)  # initialize with a custom init
 
     def _build_model(self):
         self.first_layer = nn.Linear(in_features=self.d, out_features=self.width, bias=self.bias)
