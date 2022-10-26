@@ -6,7 +6,7 @@ from networks.resnet import ResNet
 INPUT_DIM = 20
 WIDTH = 256
 D_MODEL = 128
-DEPTH = 5
+N_RES = 5
 ALPHA = 1.0
 ACTIVATION = 'relu'
 N_SAMPLES = 500
@@ -19,14 +19,14 @@ A_TOL = 1.0e-5
 class TestResNet(TestCase):
     def setUp(self) -> None:
         self.net_bias = ResNet(input_dim=INPUT_DIM, d_model=D_MODEL, width=WIDTH, activation=ACTIVATION, bias=True,
-                               alpha=ALPHA, depth=DEPTH, scale=SCALE)
+                               alpha=ALPHA, n_res=N_RES, scale=SCALE)
         self.net_no_bias = ResNet(input_dim=INPUT_DIM, d_model=D_MODEL, width=WIDTH, activation=ACTIVATION, bias=False,
-                                  alpha=ALPHA, depth=DEPTH, scale=SCALE)
+                                  alpha=ALPHA, n_res=N_RES, scale=SCALE)
         
     def test_init_method(self):
         self.assertTrue(self.net_bias.input_dim == INPUT_DIM)
         self.assertTrue(self.net_bias.width == WIDTH)
-        self.assertTrue(self.net_bias.depth == DEPTH)
+        self.assertTrue(self.net_bias.n_res == N_RES)
         self.assertTrue(self.net_bias.d_model == D_MODEL)
         self.assertTrue(self.net_bias.bias)
         self.assertFalse(self.net_no_bias.bias)
@@ -49,15 +49,15 @@ class TestResNet(TestCase):
     def test_initialization_kwargs(self):
         kind = 'he'
         net = ResNet(input_dim=INPUT_DIM, d_model=D_MODEL, width=WIDTH, activation=ACTIVATION, bias=True,
-                     alpha=ALPHA, depth=DEPTH, scale=SCALE, kind=kind, mode='fan_in')
+                     alpha=ALPHA, n_res=N_RES, scale=SCALE, kind=kind, mode='fan_in')
         net = ResNet(input_dim=INPUT_DIM, d_model=D_MODEL, width=WIDTH, activation=ACTIVATION, bias=True,
-                     alpha=ALPHA, depth=DEPTH, scale=SCALE, kind=kind, mode='fan_out')
+                     alpha=ALPHA, n_res=N_RES, scale=SCALE, kind=kind, mode='fan_out')
 
         kind = 'sphere'
         net = ResNet(input_dim=INPUT_DIM, d_model=D_MODEL, width=WIDTH, activation=ACTIVATION, bias=True,
-                     alpha=ALPHA, depth=DEPTH, scale=SCALE, kind=kind)
+                     alpha=ALPHA, n_res=N_RES, scale=SCALE, kind=kind)
         net = ResNet(input_dim=INPUT_DIM, d_model=D_MODEL, width=WIDTH, activation=ACTIVATION, bias=True,
-                     alpha=ALPHA, depth=DEPTH, scale=SCALE, kind=kind)
+                     alpha=ALPHA, n_res=N_RES, scale=SCALE, kind=kind)
 
         self.assertTrue(True)
 
@@ -74,12 +74,12 @@ class TestResNet(TestCase):
         y_hat = self.net_no_bias(x)
         for scale in scales:
             net = ResNet(input_dim=INPUT_DIM, d_model=D_MODEL, width=WIDTH, activation=ACTIVATION, bias=False,
-                         alpha=ALPHA, depth=DEPTH, scale=scale)
+                         alpha=ALPHA, n_res=N_RES, scale=scale)
             with torch.no_grad():
                 net.input_layer.weight.data.copy_(self.net_no_bias.input_layer.weight.detach().data)
                 net.output_layer.weight.data.copy_(self.net_no_bias.output_layer.weight.detach().data)
 
-                for l in range(net.depth-1):
+                for l in range(net.n_res - 1):
                     net.residual_layers[l].first_layer.weight.data.copy_(
                         self.net_no_bias.residual_layers[l].first_layer.weight.detach().data)
                     net.residual_layers[l].second_layer.weight.data.copy_(
@@ -90,14 +90,14 @@ class TestResNet(TestCase):
 
     def test_set_inner_layer_dimension(self):
         net = ResNet(input_dim=INPUT_DIM, d_model=D_MODEL, activation=ACTIVATION, bias=False,
-                     alpha=ALPHA, depth=DEPTH)
+                     alpha=ALPHA, n_res=N_RES)
         self.assertTrue(net.width == D_MODEL)
         self.assertTrue(net.d_model == D_MODEL)
 
         net = ResNet(input_dim=INPUT_DIM, width=WIDTH, activation=ACTIVATION, bias=False,
-                     alpha=ALPHA, depth=DEPTH)
+                     alpha=ALPHA, n_res=N_RES)
         self.assertTrue(net.d_model == WIDTH)
         self.assertTrue(net.width == WIDTH)
 
         with self.assertRaises(ValueError):
-            ResNet(input_dim=INPUT_DIM, activation=ACTIVATION, bias=False, alpha=ALPHA, depth=DEPTH)
+            ResNet(input_dim=INPUT_DIM, activation=ACTIVATION, bias=False, alpha=ALPHA, n_res=N_RES)

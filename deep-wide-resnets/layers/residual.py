@@ -1,6 +1,6 @@
-import torch
 from torch import nn
 from pytorch_lightning import LightningModule
+from numpy import sqrt
 
 from utils.nn import *
 
@@ -11,6 +11,7 @@ class Residual(LightningModule):
     is, for an input x, the output of the residual layer is x + alpha * W_2 phi(W_1 x + b_1) + b_2.
     """
     INIT_KEYS = ['kind', 'mode']
+    INIT_KINDS = {'he', 'glorot', 'sphere', 'reproduce', 'gaussian'}  # set
 
     def __init__(self, d: int, width: int, activation: [str, None] = None, bias=False, alpha=1.0, **kwargs):
         super().__init__()
@@ -35,22 +36,38 @@ class Residual(LightningModule):
         self.first_layer = nn.Linear(in_features=self.d, out_features=self.width, bias=self.bias)
         self.second_layer = nn.Linear(in_features=self.width, out_features=self.d, bias=self.bias)
 
-    def initialize_parameters(self, kind='he', mode='fan_in'):
-        if kind == 'he':
-            torch.nn.init.kaiming_normal_(self.first_layer.weight, mode=mode, nonlinearity=self.activation_name)
-            torch.nn.init.kaiming_normal_(self.second_layer.weight, mode=mode, nonlinearity=self.activation_name)
-
-        elif kind == 'sphere':
-            with torch.no_grad():
-                weights_1 = generate_uniform_sphere_weights(width=self.width, d=self.d)
-                weights_2 = generate_bernouilli_weights(width=self.width)
-                self.first_layer.weight.data.copy_(weights_1.data)
-                self.second_layer.weight.data.copy_(weights_2.data)
+    def initialize_parameters(self, kind='gaussian', mode=None):
+        if kind not in self.INIT_KINDS:
+            raise ValueError("argument `kind` must be in {} but was {}".format(self.INIT_KINDS, kind))
 
         else:
-            with torch.no_grad():
-                self.first_layer.weight.data.copy_(torch.randn(size=(self.width, self.d)))
-                self.second_layer.weight.data.copy_(torch.randn(size=(self.d, self.width)))
+            if kind == 'he':
+                if mode not in ['fan_in', 'fan_out']:
+                    raise ValueError("`mode`argument must one of {{'fan_in', 'fan_out'}}, but was '{}'".format(mode))
+                torch.nn.init.kaiming_normal_(self.input_layer.weight, mode=mode, nonlinearity=self.activation_name)
+                torch.nn.init.kaiming_normal_(self.output_layer.weight, mode=mode, nonlinearity=self.activation_name)
+
+            elif kind == 'glorot':
+                torch.nn.init.xavier_uniform_(self.first_layer.weight)
+                torch.nn.init.xavier_uniform_(self.second_layer.weight)
+
+            elif kind == 'sphere':
+                with torch.no_grad():
+                    weights_1 = generate_uniform_sphere_weights(width=self.width, d=self.d)
+                    weights_2 = generate_bernouilli_weights(width=self.width)
+                    self.first_layer.weight.data.copy_(weights_1.data)
+                    self.second_layer.weight.data.copy_(weights_2.data)
+
+            elif kind == 'reproduce':
+                with torch.no_grad():
+                    self.first_layer.weight.data.copy_(sqrt(3 / self.d) *
+                                                       (2 * torch.rand(size=(self.width, self.d)) - 1))
+                    self.second_layer.weight.data.copy_(sqrt(3 / self.width) *
+                                                        (2 * torch.rand(size=(self.d, self.width)) - 1))
+            elif kind == 'gaussian':
+                with torch.no_grad():
+                    self.first_layer.weight.data.copy_(torch.randn(size=(self.width, self.d)) / sqrt(self.d))
+                    self.second_layer.weight.data.copy_(torch.randn(size=(self.d, self.width)) / sqrt(self.width))
 
         if self.bias:
             with torch.no_grad():
