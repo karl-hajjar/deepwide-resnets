@@ -44,12 +44,12 @@ class Residual(LightningModule):
             if kind == 'he':
                 if mode not in ['fan_in', 'fan_out']:
                     raise ValueError("`mode`argument must one of {{'fan_in', 'fan_out'}}, but was '{}'".format(mode))
-                torch.nn.init.kaiming_normal_(self.first_layer.weight, mode=mode, nonlinearity=self.activation_name)
-                torch.nn.init.kaiming_normal_(self.second_layer.weight, mode=mode, nonlinearity=self.activation_name)
+                nn.init.kaiming_normal_(self.first_layer.weight, mode=mode, nonlinearity='linear')
+                nn.init.kaiming_normal_(self.second_layer.weight, mode=mode, nonlinearity=self.activation_name)
 
             elif kind == 'glorot':
-                torch.nn.init.xavier_uniform_(self.first_layer.weight)
-                torch.nn.init.xavier_uniform_(self.second_layer.weight)
+                nn.init.xavier_uniform_(self.first_layer.weight)
+                nn.init.xavier_uniform_(self.second_layer.weight)
 
             elif kind == 'sphere':
                 with torch.no_grad():
