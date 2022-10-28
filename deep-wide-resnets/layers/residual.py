@@ -10,7 +10,7 @@ class Residual(LightningModule):
     A class defining a residual block consisting of two fully-connected layers followed by a residual connection: that
     is, for an input x, the output of the residual layer is x + alpha * W_2 phi(W_1 x + b_1) + b_2.
     """
-    INIT_KEYS = ['kind', 'mode']
+    INIT_KEYS = ['kind', 'mode', 'std']
     INIT_KINDS = {'he', 'glorot', 'sphere', 'reproduce', 'gaussian'}  # set
 
     def __init__(self, d: int, width: int, activation: [str, None] = None, bias=False, alpha=1.0, **kwargs):
@@ -36,7 +36,7 @@ class Residual(LightningModule):
         self.first_layer = nn.Linear(in_features=self.d, out_features=self.width, bias=self.bias)
         self.second_layer = nn.Linear(in_features=self.width, out_features=self.d, bias=self.bias)
 
-    def initialize_parameters(self, kind='gaussian', mode=None):
+    def initialize_parameters(self, kind='gaussian', mode=None, std=None):
         if kind not in self.INIT_KINDS:
             raise ValueError("argument `kind` must be in {} but was {}".format(self.INIT_KINDS, kind))
 
@@ -44,8 +44,8 @@ class Residual(LightningModule):
             if kind == 'he':
                 if mode not in ['fan_in', 'fan_out']:
                     raise ValueError("`mode`argument must one of {{'fan_in', 'fan_out'}}, but was '{}'".format(mode))
-                torch.nn.init.kaiming_normal_(self.input_layer.weight, mode=mode, nonlinearity=self.activation_name)
-                torch.nn.init.kaiming_normal_(self.output_layer.weight, mode=mode, nonlinearity=self.activation_name)
+                torch.nn.init.kaiming_normal_(self.first_layer.weight, mode=mode, nonlinearity=self.activation_name)
+                torch.nn.init.kaiming_normal_(self.second_layer.weight, mode=mode, nonlinearity=self.activation_name)
 
             elif kind == 'glorot':
                 torch.nn.init.xavier_uniform_(self.first_layer.weight)
@@ -65,14 +65,29 @@ class Residual(LightningModule):
                     self.second_layer.weight.data.copy_(sqrt(3 / self.width) *
                                                         (2 * torch.rand(size=(self.d, self.width)) - 1))
             elif kind == 'gaussian':
+                if std is None:
+                    std = self._get_init_std(self.activation_name)
                 with torch.no_grad():
                     self.first_layer.weight.data.copy_(torch.randn(size=(self.width, self.d)) / sqrt(self.d))
-                    self.second_layer.weight.data.copy_(torch.randn(size=(self.d, self.width)) / sqrt(self.width))
+                    self.second_layer.weight.data.copy_(std * torch.randn(size=(self.d, self.width)) / sqrt(self.width))
 
         if self.bias:
             with torch.no_grad():
                 self.first_layer.bias.data.copy_(torch.randn(size=(self.width, )))
                 self.second_layer.bias.data.copy_(torch.randn(size=(self.d, )))
+
+    @staticmethod
+    def _get_init_std(activation=None):
+        var = 1.0  # default value for the variance
+        if activation is not None:
+            if activation == 'relu':
+                var = 2.0
+            elif activation == 'gelu':
+                var = 4.0
+            elif activation in ['elu', 'tanh']:
+                var = 1.0
+
+        return sqrt(var)
 
     def forward(self, x):
         return x + self.alpha * self.second_layer(self.activation(self.first_layer(x)))

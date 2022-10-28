@@ -12,7 +12,7 @@ class ResNet(LightningModule):
     """
     A class defining a fully-connected residual network of arbitrary depth, width and inner layers dimension.
     """
-    INIT_KEYS = ['kind', 'mode']
+    INIT_KEYS = ['kind', 'mode', 'std']
     INIT_KINDS = {'he', 'glorot', 'sphere', 'reproduce', 'gaussian'}  # set
 
     def __init__(self, input_dim: int, n_res: int, width: [int, None] = None, d_model: [int, None] = None,
@@ -62,7 +62,7 @@ class ResNet(LightningModule):
         ]))
         self.output_layer = nn.Linear(in_features=self.d_model, out_features=1, bias=self.bias)
 
-    def initialize_parameters(self, kind='gaussian', mode=None):
+    def initialize_parameters(self, kind='gaussian', mode=None, std=None):
         if kind not in self.INIT_KINDS:
             raise ValueError("argument `kind` must be in {} but was {}".format(self.INIT_KINDS, kind))
 
