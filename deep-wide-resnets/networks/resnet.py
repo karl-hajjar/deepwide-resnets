@@ -15,7 +15,7 @@ class ResNet(LightningModule):
     INIT_KINDS = {'he', 'glorot', 'sphere', 'reproduce', 'gaussian'}  # set
 
     def __init__(self, input_dim: int, n_res: int, width: [int, None] = None, d_model: [int, None] = None,
-                 activation: [str, None] = None, bias=False, alpha=1.0, scale=1.0, **kwargs):
+                 activation: [str, None] = None, bias=False, alpha=1.0, **kwargs):
         super().__init__()
         act_kwargs = {key: value for key, value in kwargs.items() if key not in self.INIT_KEYS}
         init_kwargs = {key: value for key, value in kwargs.items() if key in self.INIT_KEYS}
@@ -31,9 +31,8 @@ class ResNet(LightningModule):
         self.activation = ACTIVATION_DICT[self.activation_name](**act_kwargs)
         self.bias = bias
         self.alpha = alpha  # scalar multiplier for the residual connection
-        self.scale = scale  # scalar multiplier for the output of the network (to accommodate NTK of MF-regime)
 
-        self._build_model(**init_kwargs)  # define input and output layer attributes
+        self._build_model(**kwargs)  # define input and output layer attributes
         self.initialize_parameters(**init_kwargs)  # initialize with a custom init
 
     def _set_inner_layer_dimensions(self, width, d_model):
@@ -97,4 +96,4 @@ class ResNet(LightningModule):
     def forward(self, x):
         h = self.input_layer(x)
         h = self.residual_layers(h)
-        return self.scale * self.output_layer(h)
+        return self.output_layer(h)
