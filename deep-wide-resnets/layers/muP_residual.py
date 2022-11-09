@@ -1,4 +1,4 @@
-from residual import Residual
+from layers.residual import Residual
 
 
 class MuPResidual(Residual):

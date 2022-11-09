@@ -2,7 +2,7 @@ from torch import nn
 from collections import OrderedDict
 from numpy import sqrt
 
-from resnet import ResNet
+from networks.resnet import ResNet
 from layers.muP_residual import MuPResidual
 from utils.nn import *
 
