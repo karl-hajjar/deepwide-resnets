@@ -14,6 +14,7 @@ SCALE = 1.0
 
 R_TOL = 1.0e-5
 A_TOL = 1.0e-5
+SEED = 42
 
 
 class TestResNet(TestCase):

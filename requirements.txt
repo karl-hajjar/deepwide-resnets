@@ -10,4 +10,5 @@ torchvision
 pytorch-lightning
 tensorboard
 jax[cpu]
+dm-haiku
 notebook
