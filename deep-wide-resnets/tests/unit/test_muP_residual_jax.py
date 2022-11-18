@@ -2,7 +2,7 @@ import unittest
 import jax
 import haiku as hk
 
-from layers.jax.residual import Residual
+from layers.jax.muP_residual import MuPResidual
 
 
 INPUT_DIM = 64
@@ -16,7 +16,7 @@ alpha = 1 / N_RES
 RNG_KEY = jax.random.PRNGKey(42)
 
 
-class TestJaxReInit(unittest.TestCase):
+class TestJaxMuPResidual(unittest.TestCase):
     def setUp(self) -> None:
         self.key_0, self.key_1 = jax.random.split(key=RNG_KEY, num=2)
         self.x = jax.random.normal(key=self.key_0, shape=(WIDTH,))
@@ -24,7 +24,7 @@ class TestJaxReInit(unittest.TestCase):
 
     @staticmethod
     def _forward(x):
-        net = Residual(d=WIDTH, width=WIDTH, activation=ACTIVATION, bias=BIAS, alpha=alpha)
+        net = MuPResidual(d=WIDTH, width=WIDTH, activation=ACTIVATION, bias=BIAS, alpha=alpha)
         y = net(x)
         return y
 

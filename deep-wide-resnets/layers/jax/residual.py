@@ -1,12 +1,7 @@
-from torch import nn
-from pytorch_lightning import LightningModule
 from numpy import sqrt
+from torch.nn.init import calculate_gain
 
-
-import jax
-from jax import jit
 import haiku as hk
-import jax.numpy as jnp
 from utils.jax.nn import *
 
 
@@ -18,7 +13,7 @@ class Residual(hk.Module):
     INIT_KEYS = ['kind', 'mode', 'std']
     INIT_KINDS = {'he', 'glorot', 'sphere', 'reproduce', 'gaussian'}  # set
 
-    def __init__(self, d: int, width: int, activation: [str, None] = None, bias=False, alpha=1.0, name="ResidualLayer",
+    def __init__(self, d: int, width: int, activation: [str, None] = None, bias=False, alpha=1.0, name='ResidualLayer',
                  **kwargs):
         super().__init__(name=name)
         act_kwargs = {key: value for key, value in kwargs.items() if key not in self.INIT_KEYS}  # not used for now
@@ -39,8 +34,8 @@ class Residual(hk.Module):
         self.initialize_parameters(**init_kwargs)  # initialize with a custom init
 
     def _build_model(self):
-        self.first_layer = hk.Linear(output_size=self.width, with_bias=self.bias)
-        self.second_layer = hk.Linear(output_size=self.d, with_bias=self.bias)
+        self.first_layer = hk.Linear(output_size=self.width, with_bias=self.bias, name='first_layer')
+        self.second_layer = hk.Linear(output_size=self.d, with_bias=self.bias, name='second_layer')
 
     def initialize_parameters(self, kind='gaussian', mode='fan_in', std=None):
         if kind not in self.INIT_KINDS:
@@ -50,8 +45,12 @@ class Residual(hk.Module):
             if kind == 'he':
                 # see https://dm-haiku.readthedocs.io/en/latest/api.html#haiku.initializers.VarianceScaling for the
                 # variance scaling init scheme adn the correspondence with classical initialization schemes (He, Glorot)
-                self.first_layer.w_init = hk.initializers.VarianceScaling(scale=2.0, mode=mode, distribution='normal')
-                self.second_layer.w_init = hk.initializers.VarianceScaling(scale=2.0, mode=mode, distribution='normal')
+                # Note that in the link above, there is no precision of the adaptation of the scale according to the
+                # activation function / non-linearity.
+                self.first_layer.w_init = hk.initializers.VarianceScaling(scale=1.0, mode=mode, distribution='normal')
+                gain = calculate_gain(nonlinearity=self.activation_name)  # scale of haiku = gain^2 of pytorch
+                self.second_layer.w_init = hk.initializers.VarianceScaling(scale=gain**2, mode=mode,
+                                                                           distribution='normal')
 
             elif kind == 'glorot':
                 self.first_layer.w_init = hk.initializers.VarianceScaling(scale=1.0, mode='fan_avg',

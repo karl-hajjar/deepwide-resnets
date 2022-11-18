@@ -1,13 +1,12 @@
-from torch import nn
-from pytorch_lightning import LightningModule
-from collections import OrderedDict
 from numpy import sqrt
 
-from layers.residual import Residual
-from utils.nn import *
+import haiku as hk
+from utils.jax.nn import *
+
+from layers.jax.residual import Residual
 
 
-class ResNet(LightningModule):
+class ResNet(hk.Module):
     """
     A class defining a fully-connected residual network of arbitrary depth, width and inner layers dimension.
     """
@@ -21,14 +20,14 @@ class ResNet(LightningModule):
         init_kwargs = {key: value for key, value in kwargs.items() if key in self.INIT_KEYS}
 
         self.input_dim = input_dim
-        self.n_res = n_res  # number of residual layers. total depth = n_res + 2
+        self.n_res = n_res  # number of residual layers. Total depth = n_res + 2
         self.width = width
         self._set_inner_layer_dimensions(width, d_model)
         if activation is None:
             self.activation_name = DEFAULT_ACTIVATION
         else:
             self.activation_name = activation
-        self.activation = ACTIVATION_DICT[self.activation_name](**act_kwargs)
+        self.activation = ACTIVATION_DICT[self.activation_name]
         self.bias = bias
         self.alpha = alpha  # scalar multiplier for the residual connection
 
@@ -52,13 +51,13 @@ class ResNet(LightningModule):
                 self.d_model = d_model
 
     def _build_model(self, **kwargs):
-        self.input_layer = nn.Linear(in_features=self.input_dim, out_features=self.d_model, bias=self.bias)
-        self.residual_layers = nn.Sequential(OrderedDict([
-            ('residual_{}'.format(l), Residual(d=self.d_model, width=self.width, activation=self.activation_name,
-                                               bias=self.bias, alpha=self.alpha, **kwargs))
-            for l in range(1, self.n_res+1)
-        ]))
-        self.output_layer = nn.Linear(in_features=self.d_model, out_features=1, bias=self.bias)
+        self.input_layer = hk.Linear(output_size=self.d_model, with_bias=self.bias, name='input_layer')
+        self.residual_layers = hk.Sequential(
+            [Residual(d=self.d_model, width=self.width, activation=self.activation_name, bias=self.bias,
+                      alpha=self.alpha, name='ResidualLayer{}'.format(l), **kwargs)
+            for l in range(1, self.n_res + 1)
+        ])
+        self.output_layer = hk.Linear(output_size=1, with_bias=self.bias, name='output_layer')
 
     def initialize_parameters(self, kind='gaussian', mode=None, std=None):
         if kind not in self.INIT_KINDS:
@@ -68,32 +67,28 @@ class ResNet(LightningModule):
             if kind == 'he':
                 if mode not in ['fan_in', 'fan_out']:
                     raise ValueError("`mode`argument must one of {{'fan_in', 'fan_out'}}, but was '{}'".format(mode))
-                nn.init.kaiming_normal_(self.input_layer.weight, mode=mode, nonlinearity='linear')
-                nn.init.kaiming_normal_(self.output_layer.weight, mode=mode, nonlinearity='linear')
+                self.input_layer.w_init = hk.initializers.VarianceScaling(scale=1.0, mode=mode, distribution='normal')
+                self.output_layer.w_init = hk.initializers.VarianceScaling(scale=1.0, mode=mode, distribution='normal')
 
             if kind == 'glorot':
-                nn.init.xavier_uniform_(self.input_layer.weight)
-                nn.init.xavier_uniform_(self.output_layer.weight)
+                self.input_layer.w_init = hk.initializers.VarianceScaling(scale=1.0, mode='fan_avg',
+                                                                          distribution='uniform')
+                self.output_layer.w_init = hk.initializers.VarianceScaling(scale=1.0, mode='fan_avg',
+                                                                           distribution='uniform')
 
             elif kind == 'reproduce':
-                with torch.no_grad():
-                    self.input_layer.weight.data.copy_(sqrt(3 / self.input_dim) *
-                                                       (2 * torch.rand(size=(self.d_model, self.input_dim)) - 1))
-                    self.output_layer.weight.data.copy_(sqrt(3 / self.d_model) *
-                                                        (2 * torch.rand(size=(1, self.d_model)) - 1))
+                self.input_layer.w_init = hk.initializers.UniformScaling(scale=1.0)
+                self.output_layer.w_init = hk.initializers.UniformScaling(scale=1.0)
 
             elif kind == 'gaussian':
-                with torch.no_grad():
-                    self.input_layer.weight.data.copy_(torch.randn(size=(self.d_model, self.input_dim)) /
-                                                       sqrt(self.input_dim))
-                    self.output_layer.weight.data.copy_(torch.randn(size=(1, self.d_model)) / sqrt(self.d_model))
+                self.input_layer.w_init = hk.initializers.RandomNormal(stddev=1.0 / sqrt(self.input_dim))
+                self.output_layer.w_init = hk.initializers.RandomNormal(stddev=1.0 / sqrt(self.d_model))
 
         if self.bias:
-            with torch.no_grad():
-                self.input_layer.bias.data.copy_(torch.randn(size=(self.d_model,)))
-                self.output_layer.bias.data.copy_(torch.randn(size=(1,)))
+            self.input_layer.b_init = hk.initializers.RandomNormal(stddev=1.0)
+            self.output_layer.b_init = hk.initializers.RandomNormal(stddev=1.0)
 
-    def forward(self, x):
+    def __call__(self, x):
         h = self.input_layer(x)
         h = self.residual_layers(h)
         return self.output_layer(h)

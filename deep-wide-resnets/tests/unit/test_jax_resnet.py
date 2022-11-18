@@ -2,12 +2,12 @@ import unittest
 import jax
 import haiku as hk
 
-from layers.jax.residual import Residual
+from networks.jax.resnet import ResNet
 
 
 INPUT_DIM = 64
 WIDTH = 256
-N_RES = 500
+N_RES = 5
 BIAS = False
 ALPHA = 1.0
 ACTIVATION = 'relu'
@@ -16,7 +16,7 @@ alpha = 1 / N_RES
 RNG_KEY = jax.random.PRNGKey(42)
 
 
-class TestJaxReInit(unittest.TestCase):
+class TestJaxResNet(unittest.TestCase):
     def setUp(self) -> None:
         self.key_0, self.key_1 = jax.random.split(key=RNG_KEY, num=2)
         self.x = jax.random.normal(key=self.key_0, shape=(WIDTH,))
@@ -24,7 +24,9 @@ class TestJaxReInit(unittest.TestCase):
 
     @staticmethod
     def _forward(x):
-        net = Residual(d=WIDTH, width=WIDTH, activation=ACTIVATION, bias=BIAS, alpha=alpha)
+        kind = 'glorot'
+        net = ResNet(input_dim=INPUT_DIM, n_res=N_RES, width=WIDTH, activation=ACTIVATION, bias=BIAS,
+                     alpha=alpha, kind=kind)
         y = net(x)
         return y
 
